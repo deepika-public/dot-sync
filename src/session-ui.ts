@@ -73,6 +73,36 @@ export class JoinPreview extends Modal {
   onClose() { if (!this.decided) this.decide(false); }
 }
 
+/** Offered when a session needs the daemon and none can run: one click installs it. */
+export class InstallDaemon extends Modal {
+  private decided = false;
+  constructor(app: App, readonly reason: string, readonly system: string, readonly version: string,
+    readonly install: () => Promise<void>, readonly decide: (installed: boolean) => void) { super(app); }
+  onOpen() {
+    this.titleEl.setText("Install the deepika-sync daemon?");
+    this.modalEl.addClass("dot-sync-install-daemon");
+    this.contentEl.createEl("p", { text: `${this.reason} dot-sync runs every session through deepika-sync, a small program kept in the plugin folder.` });
+    this.contentEl.createEl("p", { text: `Install deepika-sync ${this.version} for ${this.system}: it is downloaded from its GitHub release (github.com/deepika-public/deepika-sync), checked against the release's SHA-256 checksums, and placed in the plugin folder. Nothing else is installed or changed.` });
+    const status = this.contentEl.createEl("p", { cls: "dot-sync-install-error" });
+    const buttons = new Setting(this.contentEl);
+    buttons.addButton((b) => b.setButtonText("Cancel").onClick(() => this.finish(false)));
+    buttons.addButton((b) => b.setButtonText("Install").setCta().onClick(() => {
+      b.setDisabled(true).setButtonText("Installing…");
+      status.setText("");
+      this.install().then(() => this.finish(true), (error: unknown) => {
+        status.setText(error instanceof Error ? error.message : String(error));
+        b.setDisabled(false).setButtonText("Retry");
+      });
+    }));
+  }
+  private finish(installed: boolean) {
+    this.decided = true;
+    this.close();
+    this.decide(installed);
+  }
+  onClose() { if (!this.decided) this.decide(false); }
+}
+
 export class FolderPicker extends FuzzySuggestModal<TFolder> {
   constructor(app: App, readonly choose: (folder: TFolder) => void) {
     super(app);

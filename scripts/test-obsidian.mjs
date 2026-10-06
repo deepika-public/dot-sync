@@ -473,9 +473,20 @@ try {
     readdirSync(b.docs).filter((f) => f.startsWith("architecture")).length === 2 && existsSync(join(b.docs, "only mine.md")));
   await a.dev.eval(`app.plugins.plugins['dot-sync'].leave()`);
   console.log("PASS: join preview lists the changes, refusing leaves no trace, accepting joins and keeps both versions.");
+  // A daemon set in the settings that cannot run is named, and nothing starts.
   await a.dev.eval(`(async()=>{const p=app.plugins.plugins['dot-sync'];p.config.binary='/missing/deepika-sync';await p.selectAndLaunch(app.vault.getAbstractFileByPath('Next session'));})()`);
-  await until(() => a.dev.eval(`app.plugins.plugins['dot-sync'].launchError.includes('ENOENT')`));
-  console.log("PASS: folder picker, context menu, folder badge, switching folders and executable error.");
+  await until(() => a.dev.eval(`app.plugins.plugins['dot-sync'].status.textContent.includes('cannot run')`));
+  assert.equal(await a.dev.eval(`app.plugins.plugins['dot-sync'].config.root`), "");
+  // Without any daemon, starting offers to install one; cancelling changes nothing.
+  await a.dev.eval(`(()=>{const p=app.plugins.plugins['dot-sync'];p.config.binary='deepika-sync';window.installResult=p.selectAndLaunch(app.vault.getAbstractFileByPath('Next session')).then(()=>'done',e=>String(e));return true})()`);
+  const offer = await until(() => a.dev.eval(`document.querySelector('.dot-sync-install-daemon')?.innerText`));
+  assert.match(offer, /deepika-sync is not installed/);
+  assert.match(offer, /SHA-256/);
+  writeFileSync(join(base, "install-offer.png"), Buffer.from((await a.dev.call("Page.captureScreenshot", { format: "png" })).data, "base64"));
+  await a.dev.eval(`(()=>{[...document.querySelectorAll('.dot-sync-install-daemon button')].find(b=>b.textContent==='Cancel').click();return true})()`);
+  assert.equal(await until(() => a.dev.eval(`window.installResult`)), "done");
+  assert.equal(await a.dev.eval(`app.plugins.plugins['dot-sync'].config.root`), "");
+  console.log("PASS: folder picker, context menu, folder badge, switching folders, unusable daemon setting and install offer.");
   // An update swaps the daemon's file while the old process keeps running: the plugin
   // stops what it cannot talk to and starts the installed daemon in its place.
   const stale = join(a.docs, "..", "Stale");

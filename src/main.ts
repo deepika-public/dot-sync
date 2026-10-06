@@ -2,6 +2,7 @@ import {
   Plugin,
   PluginSettingTab,
   Setting,
+  ButtonComponent,
   Notice,
   Modal,
   App,
@@ -9,15 +10,17 @@ import {
   editorInfoField,
   TFolder,
   TFile,
+  requestUrl,
 } from "obsidian";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { realpathSync } from "node:fs";
 import { relative, join } from "node:path";
 import { spawn, execFile } from "node:child_process";
 import { Binding, collab, remoteOutOfHistory } from "./binding";
-import { FolderPicker, FolderBadge, ShareInvitation, JoinPreview } from "./session-ui";
+import { FolderPicker, FolderBadge, ShareInvitation, JoinPreview, InstallDaemon } from "./session-ui";
+import { DAEMON_RELEASE, RELEASES, compareVersions, daemonTarget, installDaemon, parseVersion } from "./install";
 import { folderRoot, sharedPath } from "./session-safety";
-import { CompatibilityError, JoinPlan, Session, WEB_PAGE, launchArguments, launchFailure, parsePlan, previewArguments, readSession, resolveBinary, runningPid, isAlive, serverUrl, webLink } from "./session";
+import { CompatibilityError, JoinPlan, MINIMUM_DAEMON, Session, WEB_PAGE, launchArguments, launchFailure, parsePlan, previewArguments, readSession, resolveBinary, runningPid, isAlive, serverUrl, webLink } from "./session";
 interface Config {
   root: string;
   binary: string;
@@ -272,6 +275,8 @@ export default class DotSyncPlugin extends Plugin {
     }
     this.switching = true;
     try {
+      // A daemon already serving this folder needs nothing; otherwise one must run here.
+      if (!runningPid(root) && !(await this.ensureDaemon())) return;
       // Joining rewrites part of the folder. Show what, and let the user walk away:
       // until they accept, neither the daemon nor the plugin has written anything.
       if (invite && !runningPid(root) && !(await this.reviewJoin(folder, root, invite))) {
@@ -289,11 +294,58 @@ export default class DotSyncPlugin extends Plugin {
       else if (invite && invite !== this.session.invite) this.warn("This folder already runs a session; leave it before joining another.");
     } finally { this.switching = false; }
   }
+  /** The plugin folder, where an installed daemon lives. */
+  pluginFolder(): string | undefined {
+    const disk = this.app.vault.adapter;
+    return disk instanceof FileSystemAdapter && this.manifest.dir ? join(disk.getBasePath(), this.manifest.dir) : undefined;
+  }
   /** The daemon binary: the setting, else one unpacked in the plugin folder, else the PATH. */
   binary() {
-    const disk = this.app.vault.adapter;
-    const folder = disk instanceof FileSystemAdapter && this.manifest.dir ? join(disk.getBasePath(), this.manifest.dir) : undefined;
-    return resolveBinary(this.config.binary, folder);
+    return resolveBinary(this.config.binary, this.pluginFolder());
+  }
+  /** Whether the Daemon binary setting names another executable than the installed one. */
+  customBinary() {
+    const chosen = this.config.binary.trim();
+    return chosen !== "" && chosen !== "deepika-sync";
+  }
+  /** The version a daemon binary announces, or none when it cannot run. */
+  daemonVersion(binary = this.binary()): Promise<string | undefined> {
+    return new Promise((resolve) => execFile(binary, ["--version"], { timeout: 10000 },
+      (error, stdout) => resolve(error ? undefined : parseVersion(String(stdout)))));
+  }
+  /** Downloads, checks and installs the daemon release into the plugin folder. */
+  async installDaemon(): Promise<void> {
+    const folder = this.pluginFolder();
+    if (!folder) throw new Error("Installing the daemon needs the desktop app.");
+    await installDaemon({
+      folder,
+      platform: process.platform,
+      arch: process.arch,
+      get: async (url) => (await requestUrl({ url })).arrayBuffer,
+      version: (binary) => new Promise((resolve, reject) => execFile(binary, ["--version"], { timeout: 10000 },
+        (error, stdout) => (error ? reject(new Error(error.message)) : resolve(String(stdout))))),
+    });
+    new Notice(`deepika-sync ${DAEMON_RELEASE} installed.`);
+  }
+  /** True once a daemon recent enough can run; otherwise offers to install one. */
+  async ensureDaemon(): Promise<boolean> {
+    const minimum = MINIMUM_DAEMON.join(".");
+    const version = await this.daemonVersion();
+    if (version && compareVersions(version, minimum) >= 0) return true;
+    if (this.customBinary()) {
+      this.warn(version
+        ? `The Daemon binary setting runs deepika-sync ${version}; dot-sync needs ${minimum} or later.`
+        : `The Daemon binary setting names a program that cannot run: ${this.config.binary}.`);
+      return false;
+    }
+    const build = daemonTarget(process.platform, process.arch);
+    if (!build) {
+      this.warn(`deepika-sync does not run on this system yet (${process.platform} ${process.arch}). See ${RELEASES}.`);
+      return false;
+    }
+    const reason = version ? `The installed deepika-sync ${version} is too old.` : "deepika-sync is not installed.";
+    return new Promise((resolve) => new InstallDaemon(this.app, reason, build.label, DAEMON_RELEASE,
+      () => this.installDaemon(), resolve).open());
   }
   /** Ask the daemon what joining would change, show it, and resolve with the decision. */
   async reviewJoin(folder: TFolder, root: string, invite: string): Promise<boolean> {
@@ -433,7 +485,9 @@ export default class DotSyncPlugin extends Plugin {
       this.warn(this.launchError);
       this.badge?.update(undefined, "");
     };
-    child.on("error", e => failed(`${e.message}. Check Daemon binary in settings.`));
+    child.on("error", (e: NodeJS.ErrnoException) => failed(e.code === "ENOENT" && !this.customBinary()
+      ? "deepika-sync is not installed. Install it from the dot-sync settings."
+      : `${e.message}. Check Daemon binary in settings.`));
     child.on("exit", (code, signal) => {
       this.launching = false;
       if (code !== 0 && signal !== "SIGTERM") failed(launchFailure(errorOutput) || `exit ${code ?? signal}`);
@@ -458,11 +512,12 @@ class Settings extends PluginSettingTab {
   }
   display() {
     this.containerEl.empty();
-    for (const [key, label] of [
-      ["binary", "Daemon binary"],
-      ["name", "Display name"],
+    this.daemon(new Setting(this.containerEl).setName("Daemon").setDesc("Checking…"));
+    for (const [key, label, desc] of [
+      ["binary", "Daemon binary", "Leave “deepika-sync” to use the daemon installed above, or the one in the PATH; or give the full path of another executable."],
+      ["name", "Display name", ""],
     ] as const) {
-      new Setting(this.containerEl).setName(label).addText((t) =>
+      new Setting(this.containerEl).setName(label).setDesc(desc).addText((t) =>
         t.setValue(this.plugin.config[key]).onChange(async (value) => {
           this.plugin.config[key] = value;
           if (key === "name") for (const binding of this.plugin.bindings) binding.setName(value || "Peer");
@@ -496,5 +551,37 @@ class Settings extends PluginSettingTab {
           await this.plugin.saveData(this.plugin.config);
         }),
       );
+  }
+  /** What runs sessions, and the button that installs or updates it. */
+  private daemon(setting: Setting) {
+    const plugin = this.plugin;
+    const build = daemonTarget(process.platform, process.arch);
+    let action = "Install";
+    let button: ButtonComponent | undefined;
+    if (build) setting.addButton((b) => {
+      button = b.setButtonText("…").setDisabled(true).onClick(() => {
+        b.setDisabled(true).setButtonText("Installing…");
+        plugin.installDaemon().then(() => refresh(), (error: unknown) => {
+          new Notice(`deepika-sync was not installed: ${error instanceof Error ? error.message : String(error)}`, 10000);
+          b.setDisabled(false).setButtonText(action);
+        });
+      });
+    });
+    const refresh = () => {
+      const binary = plugin.binary();
+      void plugin.daemonVersion(binary).then((version) => {
+        const desc = createFragment();
+        desc.appendText(version ? `deepika-sync ${version} is installed.` : "deepika-sync is not installed: dot-sync needs it to run a session.");
+        if (version && compareVersions(version, DAEMON_RELEASE) < 0) desc.appendText(` Version ${DAEMON_RELEASE} is available.`);
+        if (!build) desc.appendText(` No build for this system yet (${process.platform} ${process.arch}): see ${RELEASES}.`);
+        else if (plugin.customBinary()) desc.appendText(" The Daemon binary setting below takes precedence over an installed daemon.");
+        if (version) desc.createDiv({ cls: "dot-sync-daemon-path", text: binary });
+        setting.setDesc(desc);
+        action = !version ? "Install" : compareVersions(version, DAEMON_RELEASE) < 0 ? "Update" : "Reinstall";
+        button?.setButtonText(action).setDisabled(false);
+        button?.buttonEl.toggleClass("mod-cta", action !== "Reinstall");
+      });
+    };
+    refresh();
   }
 }

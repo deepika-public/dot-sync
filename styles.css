@@ -6,3 +6,5 @@
 .dot-sync-join-preview h4 { margin: 0.8em 0 0.2em; font-size: var(--font-ui-medium); }
 .dot-sync-preview-danger, .dot-sync-preview-error { color: var(--text-error); }
 .dot-sync-preview-calm { color: var(--text-success); }
+.dot-sync-install-error { color: var(--text-error); }
+.dot-sync-daemon-path { color: var(--text-muted); font-size: var(--font-ui-smaller); word-break: break-all; }

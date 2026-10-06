@@ -67,6 +67,15 @@ un terminal, un daemon arrêté, ou un daemon d'une version précédente resté 
 une mise à jour, qu'il remplace. **Join session** interroge d'abord la session avec
 `join --preview`, qui n'écrit rien, et ne lance le daemon qu'après **Accept and join**.
 
+Avant de démarrer ou de rejoindre, le plugin demande sa version au daemon (`--version`). S'il
+manque ou s'il est trop ancien, il propose de l'installer : `src/install.ts` télécharge, par
+`requestUrl` d'Obsidian, le `SHA256SUMS` puis l'archive de la release GitHub prévue par
+`DAEMON_RELEASE`, pour la cible de `process.platform` et `process.arch` ; vérifie la somme ;
+extrait l'exécutable de l'archive tar sans dépendance ; l'écrit à côté, vérifie qu'il annonce
+la bonne version, puis le renomme en `deepika-sync` dans le dossier du plugin. Un renommage :
+un daemon en marche garde son fichier jusqu'à son redémarrage, et un échec laisse en place
+le daemon précédent.
+
 Ce que fait le daemon de l'autre côté du WebSocket — persistance, transport, collisions
 de chemin, rattrapage au démarrage — est décrit dans son
 [architecture](https://gitlab.com/deepika-public/deepika-obsidian-toolbox/deepika-sync/-/blob/main/docs/explanation/architecture.md).

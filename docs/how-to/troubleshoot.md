@@ -11,13 +11,16 @@ propre guide : [dépanner le daemon](https://gitlab.com/deepika-public/deepika-o
 reconnectent seules et ce qui a été tapé entre-temps est fusionné.
 
 **`⚠ Incompatible deepika-sync daemon`.** Le binaire `deepika-sync` trouvé est plus ancien que
-celui que le plugin exige : refaire l'[installation](install.md) des deux. Si c'est un
+celui que le plugin exige : réglages de dot-sync → **Daemon** → **Update**. Si c'est un
 daemon de l'ancienne version resté en marche après une mise à jour, le plugin le remplace
 de lui-même. Les notes ne sont pas touchées.
 
-**`Cannot start daemon`.** Le fichier `deepika-sync` n'est pas dans
-`.obsidian/plugins/dot-sync/`, ou le chemin de **Daemon binary** est faux ; le message
-donne la raison (`ENOENT` : introuvable).
+**« deepika-sync is not installed »** ou **`Cannot start daemon`.** Le daemon manque dans
+`.obsidian/plugins/dot-sync/`, ou le chemin de **Daemon binary** est faux. Réglages de
+dot-sync → **Daemon** → **Install**. Si l'installation échoue : connexion à `github.com`
+(proxy, pare-feu) ; une somme SHA-256 fausse est toujours refusée, réessayer plus tard ou
+installer [à la main](install.md#à-la-main). « No build for this system » : Windows n'est
+pas encore pris en charge.
 
 **« … was deleted by a collaborator ».** La note a été supprimée dans la session pendant
 que vous l'aviez ouverte. Son texte reste dans l'éditeur, détaché : le copier dans une

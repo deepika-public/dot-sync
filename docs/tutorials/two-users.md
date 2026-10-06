@@ -1,43 +1,26 @@
 # Essai à deux : un hôte, un invité
 
 Deux personnes **à distance**, chacune avec Obsidian. L'**hôte** partage un dossier,
-l'**invité** le rejoint. Quatre étapes, dix minutes. Linux x86_64 ; macOS n'est pas encore
-validé.
+l'**invité** le rejoint. Quatre étapes, dix minutes. Linux ou macOS (expérimental).
 
-## 1. Télécharger et installer — les deux
+## 1. Installer le plugin — les deux
 
-Télécharger les deux archives de la **dernière** version (il faut avoir accès aux projets) :
+Dans Obsidian, **Paramètres → Modules complémentaires** : désactiver le mode restreint si
+besoin, puis **Parcourir**, chercher **dot-sync**, **Installer** et **Activer**.
 
-- le daemon : [Releases de deepika-sync](https://gitlab.com/deepika-public/deepika-obsidian-toolbox/deepika-sync/-/releases)
-  → `deepika-sync-<version>-x86_64-unknown-linux-gnu.tar.gz`
-- le plugin : [Releases de dot-sync](https://gitlab.com/deepika-public/deepika-obsidian-toolbox/dot-sync/-/releases)
-  → `dot-sync-<version>.zip`
+## 2. Installer le daemon et régler — les deux
 
-Obsidian fermé, les décompresser dans le vault — le daemon va **dans le dossier du plugin**,
-qui le trouve alors tout seul :
+Dans les réglages de dot-sync :
 
-```bash
-VAULT=~/Documents/MonVault          # votre vault
-cd ~/Téléchargements
-
-mkdir -p "$VAULT/.obsidian/plugins"
-unzip -o dot-sync-*.zip -d "$VAULT/.obsidian/plugins"
-tar -xzf deepika-sync-v*-x86_64-unknown-linux-gnu.tar.gz --strip-components=1 \
-    -C "$VAULT/.obsidian/plugins/dot-sync" --wildcards '*/deepika-sync'
-```
-
-## 2. Activer le module — les deux
-
-Ouvrir le vault dans Obsidian, puis **Paramètres → Modules complémentaires** : désactiver le
-mode restreint si besoin, et activer **dot-sync**.
-
-Dans les réglages du module :
-
+- **Daemon** : **Install**. Le plugin télécharge le daemon deepika-sync de votre système,
+  vérifie sa somme et le range dans son dossier ; la ligne affiche ensuite
+  `deepika-sync <version> is installed` ;
 - **Display name** : votre prénom, affiché à côté de votre curseur ;
 - **Use public Iroh relay** : **activé, des deux côtés**. C'est ce qui permet de se joindre
   à distance, d'un réseau à l'autre ; les échanges restent chiffrés de bout en bout.
 
 La barre d'état, en bas à droite, affiche `○ No session · choose a folder to start or join`.
+Sans catalogue, l'installation à la main est dans [installer](../how-to/install.md#à-la-main).
 
 ## 3. L'hôte partage
 

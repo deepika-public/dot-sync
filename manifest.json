@@ -1,7 +1,7 @@
 {
   "id": "dot-sync",
   "name": "dot-sync",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "minAppVersion": "1.8.0",
   "description": "Live collaboration on Markdown folders, peer to peer, through the local deepika-sync daemon.",
   "author": "Clément OLIVIER",

@@ -13,7 +13,10 @@ Les tests `test/unit` couvrent la logique pure : lecture et validation de
 `session.json` (version trop ancienne, autre racine, daemon mort), encodage des chemins
 de notes, confinement au dossier partagé, et la fusion d'un éditeur avec la session à
 l'attachement — frappes avant la première synchronisation, changements des deux côtés,
-paires de substitution UTF-16.
+paires de substitution UTF-16. `install.test.ts` couvre l'installation du daemon : choix de
+l'archive selon le système, lecture de `SHA256SUMS`, extraction de l'exécutable d'une
+archive tar (préfixes ustar, chemins PAX), et refus d'une somme fausse, d'une archive sans
+daemon ou d'un binaire qui annonce une autre version, sans toucher au daemon déjà installé.
 
 ## Intégration avec deepika-sync
 

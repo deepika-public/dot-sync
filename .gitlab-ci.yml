@@ -1,0 +1,74 @@
+stages: [test, package, integration, release]
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
+default:
+  image: node:24.14.1-bookworm@sha256:80fc934952c8f1b2b4d39907af7211f8a9fff1a4c2cf673fb49099292c251cec
+  before_script:
+    - npm ci
+
+verify:
+  stage: test
+  script:
+    - python3 scripts/check-docs.py
+    - npm run build
+    - npm test
+    - python3 test/release/test_download.py
+
+package:
+  stage: package
+  script:
+    - apt-get update && apt-get install -y --no-install-recommends python3
+    - npm run package
+    - cd dist && sha256sum -c SHA256SUMS && cd ..
+    - python3 -m zipfile -t dist/dot-sync-*.zip
+  artifacts:
+    paths: [dist/]
+    expire_in: 30 days
+
+integration:
+  stage: integration
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - if: '$DEEPIKA_SYNC_PROJECT_ID && $DEEPIKA_SYNC_RELEASE_TAG'
+  script:
+    - apt-get update && apt-get install -y --no-install-recommends curl python3
+    - sh scripts/test-release-daemon.sh
+  # 78: the configured daemon release predates what this plugin requires. Shown as a
+  # warning, so it is neither mistaken for a plugin defect nor quietly counted as tested.
+  allow_failure:
+    exit_codes: 78
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/cli@sha256:3f0a591b3b96c39ac8e28480ee99bb93201b7bcea1fbca7ed50c034098111db2
+  before_script:
+    - apk add --no-cache curl
+  resource_group: release-$CI_COMMIT_TAG
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^[0-9]+\.[0-9]+\.[0-9]+$/'
+  script:
+    - |
+      set -eu
+      cd dist
+      sha256sum -c SHA256SUMS
+      for file in "dot-sync-${CI_COMMIT_TAG}.zip" SHA256SUMS; do
+        curl --fail-with-body --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$file" \
+          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/dot-sync/$CI_COMMIT_TAG/$file"
+      done
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'dot-sync $CI_COMMIT_TAG'
+    description: 'Plugin Desktop, IPC v2 requis. Testé contre deepika-sync $DEEPIKA_SYNC_RELEASE_TAG. Installation dans les documents inclus. macOS non validé.'
+    assets:
+      links:
+        - name: 'Plugin Obsidian'
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/dot-sync/$CI_COMMIT_TAG/dot-sync-$CI_COMMIT_TAG.zip'
+        - name: 'SHA256SUMS'
+          url: '$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/dot-sync/$CI_COMMIT_TAG/SHA256SUMS'

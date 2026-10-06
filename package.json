@@ -1,0 +1,37 @@
+{
+  "name": "dot-sync",
+  "version": "0.6.0",
+  "license": "MIT",
+  "private": true,
+  "author": "Clément OLIVIER <clement.olivier@deepika.ai>",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && node build.mjs",
+    "test": "vitest run test/unit",
+    "test:integration": "vitest run test/integration --testTimeout 20000",
+    "test:desktop": "node scripts/test-obsidian.mjs",
+    "package": "npm run build && python3 scripts/package.py"
+  },
+  "dependencies": {
+    "@codemirror/state": "6.5.0",
+    "@codemirror/view": "6.38.6",
+    "y-codemirror.next": "^0.3.6",
+    "y-protocols": "^1.0.7",
+    "y-websocket": "^3.1.0",
+    "yjs": "^13.6.32"
+  },
+  "devDependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1",
+    "obsidian": "1.13.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1",
+    "ws": "^8.21.3"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

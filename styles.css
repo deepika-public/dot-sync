@@ -1,0 +1,8 @@
+.dot-sync-folder-badge { margin-inline-start: auto; padding: 0 5px; color: var(--text-accent); font-size: var(--font-smallest); white-space: nowrap; border: 1px solid var(--background-modifier-border); border-radius: 4px; }
+.dot-sync-invitation { width: 100%; min-height: 6em; resize: vertical; }
+.dot-sync-web-link { width: 100%; }
+.dot-sync-web-link-unavailable { color: var(--text-muted); }
+.dot-sync-preview-list { max-height: 9em; overflow-y: auto; margin: 0 0 0.6em; padding-inline-start: 1.4em; font-size: var(--font-ui-small); }
+.dot-sync-join-preview h4 { margin: 0.8em 0 0.2em; font-size: var(--font-ui-medium); }
+.dot-sync-preview-danger, .dot-sync-preview-error { color: var(--text-error); }
+.dot-sync-preview-calm { color: var(--text-success); }

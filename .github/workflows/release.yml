@@ -1,0 +1,46 @@
+# Release GitHub lue par le catalogue des plugins Obsidian. Le dépôt GitHub est un
+# miroir de GitLab (source) : chaque tag X.Y.Z poussé par le miroir construit le
+# plugin, atteste la provenance des fichiers (GitHub artifact attestations) et les
+# publie en pièces jointes : main.js, manifest.json, styles.css.
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build
+      - name: Attester la provenance des fichiers
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+      - name: Publier la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Une release existante (tag déplacé, relance) est mise à jour, pas recréée.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" main.js manifest.json styles.css --clobber
+          else
+            gh release create "$TAG" main.js manifest.json styles.css \
+              --title "dot-sync $TAG" \
+              --notes "Notes de version : https://gitlab.com/deepika-public/deepika-obsidian-toolbox/dot-sync/-/releases/$TAG"
+          fi

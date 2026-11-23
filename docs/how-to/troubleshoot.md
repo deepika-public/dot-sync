@@ -6,11 +6,17 @@ propre guide : [dépanner le daemon](https://gitlab.com/deepika-public/deepika-o
 
 ## Ce que dit Obsidian
 
-**`○ Session stopped`.** Le daemon s'est arrêté. Garder Obsidian ouvert, les notes restent
+Le détail de chaque état de la barre d'état s'affiche au survol.
+
+**`○ Stopped`.** Le daemon s'est arrêté. Garder Obsidian ouvert, les notes restent
 éditables ; relancer par **Start session** sur le même dossier. Les notes ouvertes se
 reconnectent seules et ce qui a été tapé entre-temps est fusionné.
 
-**`⚠ Incompatible deepika-sync daemon`.** Le binaire `deepika-sync` trouvé est plus ancien que
+**« The shared folder was deleted / was moved … »**. Le dossier partagé a disparu : sa
+session a été arrêtée et le dossier oublié. Relancer **Start session** sur le dossier à son
+nouvel emplacement pour le partager à nouveau.
+
+**`⚠ Incompatible`.** Le binaire `deepika-sync` trouvé est plus ancien que
 celui que le plugin exige : réglages de dot-sync → **Daemon** → **Update**. Si c'est un
 daemon de l'ancienne version resté en marche après une mise à jour, le plugin le remplace
 de lui-même. Les notes ne sont pas touchées.

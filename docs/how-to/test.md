@@ -50,7 +50,8 @@ dossier temporaire affiché. Il ne se connecte pas à vos profils existants.
 Il vérifie également le sélecteur de dossier, le menu contextuel, le badge, une session à
 la racine du vault, l'invitation automatique, l'ouverture/fermeture rapide de notes, le
 changement de dossier et l'erreur explicite d'un binaire introuvable ; qu'un daemon
-périmé resté en marche est remplacé ; et que tuer Obsidian arrête le daemon qu'il a lancé. Il rejoint une session
+périmé resté en marche est remplacé ; que supprimer le dossier partagé, dans Obsidian ou
+hors d'Obsidian, arrête sa session ; et que tuer Obsidian arrête le daemon qu'il a lancé. Il rejoint une session
 avec un dossier contenant une note de même nom : l'aperçu doit lister le conflit et la note
 à partager, **Refuse** ne doit laisser aucune trace (`.collab` absent, réglage vide), puis
 **Accept and join** doit aboutir aux deux versions de la note chez les deux pairs. Il renomme une note
@@ -71,16 +72,25 @@ Ces essais locaux ne valident ni la connectivité entre deux réseaux physiques,
 Avec Python 3, `curl`, `tar` et `sha256sum` :
 
 ```bash
+python3 test/release/test_package.py    # après npm run build
 python3 test/release/test_download.py
 ```
 
-Le test utilise un registre HTTP local et vérifie qu’un téléchargement absent,
+`test_package.py` empaquette une copie jetable du dépôt, dans son propre dépôt Git, et
+vérifie : contenu exact du ZIP (plugin, CHANGELOG, documentation, `BUILD.json` au bon
+commit et avec le daemon minimal de `src/session.ts`), somme `SHA256SUMS`, archive
+identique octet pour octet d'un passage à l'autre, texte de release réduit à la section de
+la version et sans lien relatif, refus d'une version sans section dans le CHANGELOG, d'un
+tag qui ne nomme pas la version, d'une release depuis un checkout modifié et de versions
+divergentes.
+
+`test_download.py` utilise un registre HTTP local et vérifie qu’un téléchargement absent,
 une archive corrompue, une somme portant sur un autre fichier, une liste de sommes
 vide/dupliquée ou un binaire de mauvaise version ne déclenche pas l’intégration. Il vérifie
 aussi qu'une release du daemon **plus ancienne que le minimum du plugin** (`MINIMUM_DAEMON`
 dans `src/session.ts`) arrête le script avec le code `78`, sans lancer la suite : le job CI
 `integration` apparaît alors en avertissement, avec la marche à suivre dans son journal.
-Il est lancé par la CI ; il ne remplace pas le test avec un vrai daemon.
+Les deux sont lancés par la CI ; ils ne remplacent pas le test avec un vrai daemon.
 
 ## Deux Obsidian vivants, pour tester à la main
 

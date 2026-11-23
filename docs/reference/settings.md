@@ -54,9 +54,14 @@ et ne propose que de renoncer. L'aperçu est sauté si un daemon sert déjà ce 
 
 ## Ce que montre l'interface
 
-- **Barre d'état** : `○ No session` ; `◌ Starting session…` ; `● Collaborative session · <dossier>` ;
-  `○ Session stopped` (daemon arrêté, relancer par **Start session**) ; `⚠ …` en cas
-  d'erreur, dont un daemon incompatible. Un état déconnecté concerne le daemon local, pas
+- **Barre d'état** : un symbole et un mot, le détail (dossier, message d'erreur) dans
+  l'infobulle au survol. `○ No session` ; `◌ Starting…` ; `● Shared` ; `○ Stopped`
+  (daemon arrêté, relancer par **Start session**) ; `⚠ Incompatible`, `⚠ Error` ou
+  `⚠ Warning` sinon. Un clic ouvre un menu : invitation, lien web et **Leave session**
+  pendant une session, **Start session** et **Join session** sinon.
+- **Dossier partagé supprimé ou déplacé** — dans Obsidian ou par un autre programme : la
+  session s'arrête d'elle-même, le dossier est oublié et une notification le dit. Pour
+  partager le dossier à son nouvel emplacement, relancer **Start session**. Un état déconnecté concerne le daemon local, pas
   les collaborateurs ; le nombre de pairs n'est pas affiché, le daemon ne l'expose pas.
 - **Badge `shared`** sur le dossier partagé dans l'explorateur, ou dans son en-tête pour la
   racine du vault. Cette décoration repose sur la structure HTML d'Obsidian, sans API

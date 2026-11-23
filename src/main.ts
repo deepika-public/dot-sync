@@ -5,15 +5,17 @@ import {
   ButtonComponent,
   Notice,
   Modal,
+  Menu,
   App,
   FileSystemAdapter,
   editorInfoField,
   TFolder,
   TFile,
   requestUrl,
+  setTooltip,
 } from "obsidian";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { relative, join } from "node:path";
 import { spawn, execFile } from "node:child_process";
 import { Binding, collab, remoteOutOfHistory } from "./binding";
@@ -21,6 +23,7 @@ import { FolderPicker, FolderBadge, ShareInvitation, JoinPreview, InstallDaemon 
 import { DAEMON_RELEASE, RELEASES, compareVersions, daemonTarget, installDaemon, parseVersion } from "./install";
 import { folderRoot, sharedPath } from "./session-safety";
 import { CompatibilityError, JoinPlan, MINIMUM_DAEMON, Session, WEB_PAGE, launchArguments, launchFailure, parsePlan, previewArguments, readSession, resolveBinary, runningPid, isAlive, serverUrl, webLink } from "./session";
+const NO_SESSION = "No session. Choose a folder to start or join one.";
 interface Config {
   root: string;
   binary: string;
@@ -73,10 +76,9 @@ export default class DotSyncPlugin extends Plugin {
       if (value !== undefined) Object.assign(this.config, { [key]: value });
     }
     this.status = this.addStatusBarItem();
-    this.status.setText("○ No session · choose a folder to start or join");
-    this.registerDomEvent(this.status, "click", () => {
-      if (this.session) this.showInvitation();
-    });
+    this.setStatus("○", "No session", NO_SESSION);
+    this.status.addClass("mod-clickable");
+    this.registerDomEvent(this.status, "click", (event) => this.statusMenu(event));
     this.badge = new FolderBadge(this.app.workspace.containerEl);
     this.register(() => this.badge?.destroy());
     this.addSettingTab(new Settings(this.app, this));
@@ -139,9 +141,14 @@ export default class DotSyncPlugin extends Plugin {
     ]);
     register(this);
     this.registerEvent(this.app.workspace.on("layout-change", () => this.reconcileEditors()));
+    // A session cannot outlive its folder: deleting or moving it stops the session.
+    this.registerEvent(this.app.vault.on("delete", (file) => {
+      if (file instanceof TFolder && this.holdsRoot(file.path)) this.folderGone("was deleted");
+    }));
     // A note renamed here keeps its identity: the daemon sees the move on disk. The open
     // editor only has to ask for the new path if it ever reconnects.
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
+      if (file instanceof TFolder && this.holdsRoot(oldPath)) { this.folderGone(`was moved to ${file.path}`); return; }
       const old = this.sharedPath(oldPath, false);
       const next = this.sharedPath(file.path, false);
       if (old === undefined || next === undefined) return;
@@ -237,14 +244,57 @@ export default class DotSyncPlugin extends Plugin {
   }
   warn(text: string) {
     new Notice(text, 8000);
-    this.status.setText("⚠ Collaboration · " + text.slice(0, 90));
+    this.setStatus("⚠", "Warning", text);
   }
-  showState(text: string, badge: string) {
-    this.status.setText(text);
+  /** The status bar holds a symbol and a word; the details are in its tooltip. */
+  setStatus(symbol: string, label: string, detail: string) {
+    this.status.setText(`${symbol} ${label}`);
+    setTooltip(this.status, `dot-sync · ${detail}`, { placement: "top" });
+  }
+  showState(symbol: string, label: string, detail: string, badge: string) {
+    this.setStatus(symbol, label, detail);
     const vault = this.app.vault.adapter;
     const path = this.config.root && vault instanceof FileSystemAdapter
       ? relative(realpathSync(vault.getBasePath()), this.config.root) || "/" : undefined;
     this.badge?.update(path, badge);
+  }
+  /** Whether the vault folder at `path` is the shared folder or one of its parents. */
+  holdsRoot(path: string) {
+    const disk = this.app.vault.adapter;
+    if (!this.config.root || !(disk instanceof FileSystemAdapter)) return false;
+    try {
+      const root = relative(realpathSync(disk.getBasePath()), this.config.root);
+      return root === path || root.startsWith(path + "/");
+    } catch { return false; }
+  }
+  /** The shared folder is gone, through Obsidian or not: its daemon would go on serving
+   *  a folder that is no longer there. Stop it and forget the folder. */
+  folderGone(what: string) {
+    if (this.switching || !this.config.root) return;
+    const root = this.config.root;
+    // Its session file went with the folder: the pid is only known from before.
+    const pid = this.session?.pid;
+    this.launching = false;
+    void this.leave(pid).then(
+      () => new Notice(`The shared folder ${what}, so its dot-sync session was stopped: ${root}. Start a session again to share it.`, 10000),
+      (e) => this.warn(String(e)));
+  }
+  /** What the status bar offers: always a way out of the current session. */
+  statusMenu(event: MouseEvent) {
+    const menu = new Menu();
+    if (this.session) {
+      menu.addItem(item => item.setTitle("Show invitation").setIcon("share-2").onClick(() => this.showInvitation()));
+      menu.addItem(item => item.setTitle("Copy invitation").setIcon("copy").onClick(() => this.copyInvitation()));
+      menu.addItem(item => item.setTitle("Copy web link").setIcon("globe").onClick(() => this.copyWebLink()));
+    }
+    if (this.config.root) {
+      menu.addItem(item => item.setTitle("Leave session").setIcon("log-out")
+        .onClick(() => void this.leave().catch(e => this.warn(String(e)))));
+    } else {
+      menu.addItem(item => item.setTitle("Start session").setIcon("radio").onClick(() => this.chooseFolder(false)));
+      menu.addItem(item => item.setTitle("Join session").setIcon("users").onClick(() => this.chooseFolder(true)));
+    }
+    menu.showAtMouseEvent(event);
   }
   isSelected(folder: TFolder) {
     try { return this.rootFor(folder) === this.config.root; } catch { return false; }
@@ -349,7 +399,7 @@ export default class DotSyncPlugin extends Plugin {
   }
   /** Ask the daemon what joining would change, show it, and resolve with the decision. */
   async reviewJoin(folder: TFolder, root: string, invite: string): Promise<boolean> {
-    this.showState("◌ Inspecting the session…", "");
+    this.showState("◌", "Inspecting…", "Asking the session what joining would change.", "");
     const plan = await new Promise<JoinPlan | Error>((resolve) => {
       execFile(this.binary(), previewArguments(root, invite, this.config.relay),
         { timeout: 60000, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
@@ -357,30 +407,33 @@ export default class DotSyncPlugin extends Plugin {
           else try { resolve(parsePlan(stdout)); } catch (e) { resolve(e as Error); }
         });
     });
-    this.showState("○ No session · choose a folder to start or join", "");
+    this.showState("○", "No session", NO_SESSION, "");
     const label = folder.isRoot() ? this.app.vault.getName() : folder.path;
     return new Promise((resolve) => new JoinPreview(this.app, label, plan, resolve).open());
   }
   /** Stop the daemon and forget the folder. Open notes are released first, so the
    *  daemon writes their merged text before it exits. */
-  async leave() {
+  async leave(known?: number) {
     if (this.launching || this.switching) throw new Error("Session operation in progress. Try again shortly.");
     this.switching = true;
     try {
       for (const binding of [...this.bindings]) this.release(binding);
       // By pid alone: a daemon too old to talk to can still be stopped.
-      const pid = this.session?.pid ?? this.daemonPid();
+      const pid = known ?? this.session?.pid ?? this.daemonPid();
       if (pid) {
         // Let the daemon see the sockets close before it is asked to stop.
         await new Promise(resolve => window.setTimeout(resolve, 300));
         try { process.kill(pid, "SIGTERM"); } catch { /* already gone */ }
       }
+      // A daemon this window started stops with its pipe, even when its pid is unknown.
+      this.lifeline?.end();
+      this.lifeline = undefined;
       this.session = undefined;
       this.config.root = "";
       this.launchError = "";
       this.showInviteOnConnect = false;
       await this.saveData(this.config);
-      this.showState("○ No session · choose a folder to start or join", "");
+      this.showState("○", "No session", NO_SESSION, "");
     } finally { this.switching = false; this.reconcileEditors(); }
   }
   /** Path of a vault file inside the shared root; `existing` resolves symlinks. */
@@ -408,20 +461,27 @@ export default class DotSyncPlugin extends Plugin {
         this.session = session;
         this.launching = false;
         this.launchError = "";
-        this.showState(`● Collaborative session · ${this.config.root}`, "shared");
+        this.showState("●", "Shared", `Collaborative session in ${this.config.root}.`, "shared");
         if (this.showInviteOnConnect) {
           this.showInviteOnConnect = false;
           new ShareInvitation(this.app, session.invite, this.config.webPage).open();
         }
       } else if (!session) {
         this.session = undefined;
-        this.showState(this.launchError || (this.launching ? "◌ Starting session…" : "○ Session stopped · run Start session to resume"), "disconnected");
+        if (this.launchError) this.showState("⚠", "Error", this.launchError, "disconnected");
+        else if (this.launching) this.showState("◌", "Starting…", `Starting the session in ${this.config.root}.`, "disconnected");
+        else this.showState("○", "Stopped", "The daemon stopped. Run Start session to resume.", "disconnected");
       }
     } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT" && !existsSync(this.config.root)) {
+        this.folderGone("no longer exists");
+        return;
+      }
       this.session = undefined;
       const outdated = error instanceof CompatibilityError ? this.daemonPid() : undefined;
       if (outdated && !this.replaced.has(outdated)) { void this.replaceOutdated(outdated); return; }
-      this.showState(error instanceof CompatibilityError ? `⚠ ${error.message}` : `○ Session unavailable · ${String(error)}`, "disconnected");
+      if (error instanceof CompatibilityError) this.showState("⚠", "Incompatible", error.message, "disconnected");
+      else this.showState("⚠", "Unavailable", String(error), "disconnected");
     }
     this.reconcileEditors();
   }
@@ -440,7 +500,7 @@ export default class DotSyncPlugin extends Plugin {
     this.replacing = true;
     this.switching = true;
     try {
-      this.showState("◌ Updating the session's daemon…", "starting");
+      this.showState("◌", "Updating…", "Replacing the session's outdated daemon.", "starting");
       try { process.kill(pid, "SIGTERM"); } catch { /* already gone */ }
       for (let i = 0; i < 50 && isAlive(pid); i++) await new Promise(resolve => window.setTimeout(resolve, 100));
       if (isAlive(pid) || this.unloaded) return;
@@ -464,7 +524,7 @@ export default class DotSyncPlugin extends Plugin {
   }
   launch(invite?: string) {
     this.launching = true;
-    this.showState("◌ Starting session…", "starting");
+    this.showState("◌", "Starting…", `Starting the session in ${this.config.root}.`, "starting");
     // Detached, and found again through its session file. Whether the session outlives
     // Obsidian is the user's choice: when it must not, we hold a pipe to the daemon's
     // standard input and the daemon stops once that pipe closes -- with this window.

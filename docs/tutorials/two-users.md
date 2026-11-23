@@ -19,7 +19,7 @@ Dans les réglages de dot-sync :
 - **Use public Iroh relay** : **activé, des deux côtés**. C'est ce qui permet de se joindre
   à distance, d'un réseau à l'autre ; les échanges restent chiffrés de bout en bout.
 
-La barre d'état, en bas à droite, affiche `○ No session · choose a folder to start or join`.
+La barre d'état, en bas à droite, affiche `○ No session`.
 Sans catalogue, l'installation à la main est dans [installer](../how-to/install.md#à-la-main).
 
 ## 3. L'hôte partage

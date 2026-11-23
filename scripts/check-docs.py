@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Keep the documentation from drifting: no pinned version or download link outside
-docs/reference/compatibility.md, and no relative link to a missing file."""
+docs/reference/compatibility.md and CHANGELOG.md, and no relative link to a missing file."""
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = [ROOT / "README.md", *(ROOT / "docs").rglob("*.md")]
-FREE_TO_NAME_VERSIONS = {ROOT / "docs" / "reference" / "compatibility.md"}
+PAGES = [ROOT / "README.md", ROOT / "CHANGELOG.md", *(ROOT / "docs").rglob("*.md")]
+FREE_TO_NAME_VERSIONS = {ROOT / "docs" / "reference" / "compatibility.md", ROOT / "CHANGELOG.md"}
 # deepika-sync versions are 0.x.y; 127.0.0.1 and tool versions (1.95, 3.17, 0.28) do not match.
 PINNED = re.compile(r"(?<![\d.])v?0\.\d+\.\d+(?![\d.])|package_files/\d+")
 LINK = re.compile(r"\]\(([^)\s#]+\.md)(?:#[^)]*)?\)")

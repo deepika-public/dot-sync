@@ -475,7 +475,7 @@ try {
   console.log("PASS: join preview lists the changes, refusing leaves no trace, accepting joins and keeps both versions.");
   // A daemon set in the settings that cannot run is named, and nothing starts.
   await a.dev.eval(`(async()=>{const p=app.plugins.plugins['dot-sync'];p.config.binary='/missing/deepika-sync';await p.selectAndLaunch(app.vault.getAbstractFileByPath('Next session'));})()`);
-  await until(() => a.dev.eval(`app.plugins.plugins['dot-sync'].status.textContent.includes('cannot run')`));
+  await until(() => a.dev.eval(`app.plugins.plugins['dot-sync'].status.getAttribute('aria-label').includes('cannot run')`));
   assert.equal(await a.dev.eval(`app.plugins.plugins['dot-sync'].config.root`), "");
   // Without any daemon, starting offers to install one; cancelling changes nothing.
   await a.dev.eval(`(()=>{const p=app.plugins.plugins['dot-sync'];p.config.binary='deepika-sync';window.installResult=p.selectAndLaunch(app.vault.getAbstractFileByPath('Next session')).then(()=>'done',e=>String(e));return true})()`);
@@ -508,8 +508,23 @@ try {
   await until(() => deaf.exitCode !== null || deaf.signalCode !== null);
   rmSync(join(stale, ".collab/session.json"), { force: true });
   console.log("PASS: an outdated daemon left running is replaced, and one that cannot be talked to can still be left.");
-  // A session started from a window ends with it, even when Obsidian is killed outright.
+  // A session cannot outlive its folder, whether Obsidian or another program removes it.
   const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  for (const [name, remove] of [
+    ["Doomed", `app.vault.delete(app.vault.getAbstractFileByPath('Doomed'),true)`],
+    ["Vanished", undefined],
+  ]) {
+    await a.dev.eval(`(async()=>{const p=app.plugins.plugins['dot-sync'];if(p.config.root)await p.leave();p.config.binary=${JSON.stringify(binary)};await app.vault.createFolder(${JSON.stringify(name)});await p.selectAndLaunch(app.vault.getAbstractFileByPath(${JSON.stringify(name)}));})()`);
+    const pid = await until(() => a.dev.eval(`app.plugins.plugins['dot-sync'].session?.pid`));
+    await a.dev.eval(`document.querySelector('.modal-close-button')?.click()`);
+    if (remove) await a.dev.eval(`(async()=>{await ${remove};return true})()`);
+    else rmSync(join(a.docs, "..", name), { recursive: true, force: true });
+    await until(() => !alive(pid));
+    await until(() => a.dev.eval(`app.plugins.plugins['dot-sync'].config.root===''`));
+    assert.equal(await a.dev.eval(`app.plugins.plugins['dot-sync'].status.textContent`), "○ No session");
+  }
+  console.log("PASS: deleting the shared folder, in Obsidian or outside it, stops its session.");
+  // A session started from a window ends with it, even when Obsidian is killed outright.
   await a.dev.eval(`(async()=>{const p=app.plugins.plugins['dot-sync'];if(p.config.root)await p.leave();p.config.binary=${JSON.stringify(binary)};await p.selectAndLaunch(app.vault.getAbstractFileByPath('Next session'));})()`);
   const started = await until(() => a.dev.eval(`app.plugins.plugins['dot-sync'].session?.pid`));
   assert.equal(alive(started), true);

@@ -2,7 +2,8 @@
 
 La version du plugin est celle de `manifest.json` (et de `package.json`, le build refuse
 une divergence). Le daemon minimal est `MINIMUM_DAEMON` dans `src/session.ts`. Cette page
-est **le seul endroit** de la documentation où des numéros de version sont écrits.
+est, avec le [CHANGELOG](../../CHANGELOG.md), **le seul endroit** de la documentation où des
+numéros de version sont écrits.
 
 ## Daemon requis
 
@@ -25,19 +26,12 @@ l'arrêt. Il s'attache ainsi de la même façon à un daemon qu'il a lancé et �
 lancé depuis un terminal, et remarque un daemon qui s'arrête ou redémarre. Ceux qu'il
 lance prennent un port libre (`--ws-port 0`) : plusieurs vaults ne se gênent pas.
 
-## Journal des versions
+## Numérotation
 
-| Version | Changements | Daemon |
-| --- | --- | --- |
-| 0.7.0 | **Le daemon s'installe d'un clic** : réglage *Daemon* (état, bouton *Install*, *Update* ou *Reinstall*) et, au démarrage d'une session sans daemon utilisable, une fenêtre qui propose de l'installer. Le plugin télécharge l'archive de son système depuis la release GitHub du daemon, vérifie sa somme SHA-256 et la place dans son dossier ; Linux x86_64 et arm64, macOS (expérimental). Message clair si le daemon manque | 0.6.0 (installe 0.6.1) |
-| 0.6.0 | **Nouveau nom** : SyncParty for Obsidian devient dot-sync (identifiant `dot-sync`), le daemon SyncParty devient deepika-sync (exécutable `deepika-sync`). Obsidian y voit un nouveau plugin : voir [la migration](../how-to/install.md#depuis-syncparty-for-obsidian). Protocole entre pairs renommé, incompatible avec 0.5 : tous les participants passent à 0.6. Client web à l'adresse `https://deepika-public.gitlab.io/deepika-obsidian-toolbox/deepika-sync` (réglage **Web page** par défaut). Licence MIT, tags sans `v`, publication au catalogue Obsidian (miroir GitHub `deepika-public/dot-sync`) | 0.6.0 |
-| 0.5.2 | Un daemon d'une version précédente resté en marche après une mise à jour est remplacé par celui qui est installé ; **Leave session** arrête un daemon quelle que soit sa version | 0.5.1 |
-| 0.5.1 | Lien web dans la fenêtre d'invitation (**Copy web link**, réglage *Web page*) ; noms et curseurs des participants déjà présents apparaissent tout de suite ; une session démarrée depuis Obsidian s'arrête avec lui (réglage *Stop the session when Obsidian closes*) | 0.5.1 |
-| 0.5.0 | Passage aux standards Yjs : `yjs`, `y-websocket`, `y-codemirror.next` remplacent le protocole IPC maison. **Join session** montre ce qui va changer et demande ; plus de « Buffer conflict », éditeur et session sont fusionnés ; `Ctrl+Z` n'annule que ses propres frappes ; badge `shared` sans compteur de pairs ; port WebSocket choisi par le système | 0.5.0 |
-
-Règles de numérotation : tags `X.Y.Z` (`vX.Y.Z` jusqu'à 0.5.2), indépendants de ceux du daemon, qui gardent le `v`. PATCH corrige sans
-rupture, MINOR ajoute une fonctionnalité compatible ; avant `1.0`, une rupture demande un
-changement de MINOR et une migration documentée ici.
+Tags `X.Y.Z` (`vX.Y.Z` jusqu'à 0.5.2), indépendants de ceux du daemon, qui gardent le `v`.
+PATCH corrige sans rupture, MINOR ajoute une fonctionnalité compatible ; avant `1.0`, une
+rupture demande un changement de MINOR et une migration documentée, décrite dans le
+[CHANGELOG](../../CHANGELOG.md) avec tout ce que change chaque version.
 
 ## Plateformes
 

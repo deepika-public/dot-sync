@@ -59,4 +59,4 @@ Ce que le plugin fait hors d'Obsidian, comme le demandent les règles du catalog
 
 [Index](docs/README.md) · [Dépanner](docs/how-to/troubleshoot.md) ·
 [Architecture](docs/explanation/architecture.md) · [Tester](docs/how-to/test.md) ·
-[Publier une release](docs/how-to/release.md).
+[Publier une release](docs/how-to/release.md) · [Changelog](CHANGELOG.md).

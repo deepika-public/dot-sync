@@ -24,6 +24,11 @@ jobs:
           node-version: 24
       - run: npm ci
       - run: npm run build
+      - name: Notes de version, depuis CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 scripts/release-notes.py "$TAG" --github > notes.md
       - name: Attester la provenance des fichiers
         uses: actions/attest-build-provenance@v2
         with:
@@ -39,8 +44,8 @@ jobs:
           # Une release existante (tag déplacé, relance) est mise à jour, pas recréée.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" main.js manifest.json styles.css --clobber
+            gh release edit "$TAG" --notes-file notes.md
           else
             gh release create "$TAG" main.js manifest.json styles.css \
-              --title "dot-sync $TAG" \
-              --notes "Notes de version : https://gitlab.com/deepika-public/deepika-obsidian-toolbox/dot-sync/-/releases/$TAG"
+              --title "dot-sync $TAG" --notes-file notes.md
           fi
